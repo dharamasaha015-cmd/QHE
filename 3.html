@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Landau Electron Simulator</title>
+
+<style>
+
+body{
+background:#050505;
+margin:0;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+font-family:Arial;
+color:white;
+}
+
+#container{
+display:flex;
+gap:20px;
+}
+
+canvas{
+background:black;
+border:2px solid #333;
+}
+
+#panel{
+width:260px;
+background:#111;
+padding:20px;
+}
+
+h2{
+color:#00ffff;
+margin-top:0;
+}
+
+label{
+display:block;
+margin-top:15px;
+}
+
+input{
+width:100%;
+}
+
+button{
+margin-top:10px;
+padding:10px;
+width:100%;
+background:#00ffff;
+border:none;
+font-weight:bold;
+cursor:pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="container">
+
+<canvas id="canvas" width="900" height="620"></canvas>
+
+<div id="panel">
+
+<h2>Landau Setup</h2>
+
+<label>Magnetic Field B</label>
+<input type="range" min="0" max="2" step="0.05" value="0" id="bSlider">
+
+<label>Electron Speed</label>
+<input type="range" min="0.5" max="4" step="0.1" value="2" id="vSlider">
+
+<button onclick="pauseSim()">Pause</button>
+<button onclick="resumeSim()">Resume</button>
+<button onclick="resetSim()">Reset</button>
+
+</div>
+</div>
+
+<script>
+
+const canvas=document.getElementById("canvas")
+const ctx=canvas.getContext("2d")
+
+const cx=canvas.width/2
+const cy=canvas.height/2+80
+
+let electrons=[]
+let electronCount=20
+let paused=false
+
+const bSlider=document.getElementById("bSlider")
+const vSlider=document.getElementById("vSlider")
+
+function project(px,py,pz){
+
+let X=cx+px-py*0.5
+let Y=cy+py*0.5-pz*0.7
+
+return{x:X,y:Y}
+
+}
+
+function createElectrons(){
+
+electrons=[]
+
+for(let i=0;i<electronCount;i++){
+
+let ex=-350+Math.random()*100
+let ey=(Math.random()-0.5)*250
+
+electrons.push({
+
+x:ex,
+y:ey,
+vx:2,
+vy:0,
+path:[]
+
+})
+
+}
+
+}
+
+function drawFilm(){
+
+let p1=project(-350,-220,0)
+let p2=project(350,-220,0)
+let p3=project(350,220,0)
+let p4=project(-350,220,0)
+
+ctx.fillStyle="#111"
+
+ctx.beginPath()
+ctx.moveTo(p1.x,p1.y)
+ctx.lineTo(p2.x,p2.y)
+ctx.lineTo(p3.x,p3.y)
+ctx.lineTo(p4.x,p4.y)
+ctx.closePath()
+ctx.fill()
+
+ctx.strokeStyle="#555"
+ctx.stroke()
+
+}
+
+function drawMagneticField(){
+
+ctx.strokeStyle="#00ffff"
+
+for(let i=-260;i<=260;i+=120){
+
+for(let j=-180;j<=180;j+=120){
+
+let base=project(i,j,0)
+let top=project(i,j,120)
+
+ctx.beginPath()
+ctx.moveTo(base.x,base.y)
+ctx.lineTo(top.x,top.y)
+ctx.stroke()
+
+ctx.beginPath()
+ctx.moveTo(top.x,top.y)
+ctx.lineTo(top.x-6,top.y+10)
+ctx.lineTo(top.x+6,top.y+10)
+ctx.closePath()
+ctx.fillStyle="#00ffff"
+ctx.fill()
+
+}
+
+}
+
+}
+
+function drawTrajectories(){
+
+ctx.strokeStyle="#00ffff"
+
+for(let e of electrons){
+
+ctx.beginPath()
+
+for(let i=0;i<e.path.length;i++){
+
+let p=project(e.path[i].x,e.path[i].y,0)
+
+if(i==0) ctx.moveTo(p.x,p.y)
+else ctx.lineTo(p.x,p.y)
+
+}
+
+ctx.stroke()
+
+}
+
+}
+
+function drawElectrons(){
+
+for(let e of electrons){
+
+let p=project(e.x,e.y,0)
+
+ctx.beginPath()
+ctx.arc(p.x,p.y,4,0,Math.PI*2)
+ctx.fillStyle="yellow"
+ctx.fill()
+
+}
+
+}
+
+function updatePhysics(){
+
+let B=parseFloat(bSlider.value)
+let speed=parseFloat(vSlider.value)
+
+for(let e of electrons){
+
+if(B==0){
+
+e.vx=speed
+e.vy=0
+
+}else{
+
+let ax = e.vy*B*0.02
+let ay = -e.vx*B*0.02
+
+e.vx += ax
+e.vy += ay
+
+}
+
+e.x += e.vx
+e.y += e.vy
+
+e.path.push({x:e.x,y:e.y})
+
+if(e.path.length>200)
+e.path.shift()
+
+}
+
+}
+
+function draw(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+drawFilm()
+
+if(parseFloat(bSlider.value)>0)
+drawMagneticField()
+
+drawTrajectories()
+drawElectrons()
+
+}
+
+function animate(){
+
+if(!paused){
+updatePhysics()
+}
+
+draw()
+
+requestAnimationFrame(animate)
+
+}
+
+function pauseSim(){
+
+paused=true
+
+}
+
+function resumeSim(){
+
+paused=false
+
+}
+
+function resetSim(){
+
+createElectrons()
+
+}
+
+createElectrons()
+animate()
+
+</script>
+
+</body>
+</html>

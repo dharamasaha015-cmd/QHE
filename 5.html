@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Landau Level Degeneracy</title>
+
+<style>
+
+body{
+margin:0;
+background:black;
+overflow:hidden;
+font-family:Arial;
+}
+
+#title{
+position:absolute;
+top:10px;
+left:50%;
+transform:translateX(-50%);
+color:white;
+}
+
+#controls{
+position:absolute;
+right:10px;
+top:10px;
+background:#111;
+color:white;
+padding:15px;
+width:230px;
+}
+
+label{
+display:block;
+margin-top:10px;
+}
+
+input{
+width:100%;
+}
+
+button{
+width:100%;
+margin-top:10px;
+padding:8px;
+background:#00ffff;
+border:none;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="title">
+<h3>Landau Level Degeneracy</h3>
+<p>Same energy, different guiding centers</p>
+</div>
+
+<div id="controls">
+
+<label>Magnetic Field</label>
+<input type="range" id="B" min="0.5" max="3" step="0.05" value="1">
+
+<label>Electron Count</label>
+<input type="range" id="count" min="1" max="40" value="20">
+
+<button onclick="pauseSim()">Pause</button>
+<button onclick="resumeSim()">Resume</button>
+<button onclick="resetSim()">Reset</button>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+
+let scene
+let camera
+let renderer
+let electrons=[]
+let paused=false
+
+let orbitRadius = 15
+
+init()
+animate()
+
+function init(){
+
+scene=new THREE.Scene()
+
+camera=new THREE.PerspectiveCamera(
+60,
+window.innerWidth/window.innerHeight,
+0.1,
+1000
+)
+
+camera.position.set(0,120,200)
+camera.lookAt(0,0,0)
+
+renderer=new THREE.WebGLRenderer({antialias:true})
+renderer.setSize(window.innerWidth,window.innerHeight)
+
+document.body.appendChild(renderer.domElement)
+
+createLighting()
+createPlane()
+createMagneticField()
+createElectrons()
+
+window.addEventListener("resize",resize)
+
+}
+
+function resize(){
+
+camera.aspect=window.innerWidth/window.innerHeight
+camera.updateProjectionMatrix()
+
+renderer.setSize(window.innerWidth,window.innerHeight)
+
+}
+
+function createLighting(){
+
+let light=new THREE.PointLight(0xffffff,1)
+light.position.set(100,200,100)
+
+scene.add(light)
+
+let ambient=new THREE.AmbientLight(0x404040)
+scene.add(ambient)
+
+}
+
+function createPlane(){
+
+let geo=new THREE.PlaneGeometry(200,200)
+
+let mat=new THREE.MeshPhongMaterial({
+color:0x222222,
+side:THREE.DoubleSide
+})
+
+let plane=new THREE.Mesh(geo,mat)
+
+plane.rotation.x=-Math.PI/2
+
+scene.add(plane)
+
+}
+
+function createMagneticField(){
+
+for(let x=-80;x<=80;x+=20){
+
+for(let z=-80;z<=80;z+=20){
+
+let dir=new THREE.Vector3(0,1,0)
+let origin=new THREE.Vector3(x,0,z)
+
+let arrow=new THREE.ArrowHelper(dir,origin,25,0x00ffff)
+
+scene.add(arrow)
+
+}
+
+}
+
+}
+
+function createElectrons(){
+
+electrons.forEach(e=>{
+scene.remove(e.mesh)
+scene.remove(e.line)
+})
+
+electrons=[]
+
+let count=document.getElementById("count").value
+
+for(let i=0;i<count;i++){
+
+let geo=new THREE.SphereGeometry(2,16,16)
+let mat=new THREE.MeshBasicMaterial({color:0xff00ff})
+
+let electron=new THREE.Mesh(geo,mat)
+
+let centerX=(Math.random()-0.5)*150
+let centerZ=(Math.random()-0.5)*150
+
+electron.position.set(centerX,2,centerZ)
+
+scene.add(electron)
+
+/* orbit path */
+
+let points=[]
+
+for(let t=0;t<6.28;t+=0.1){
+
+points.push(
+new THREE.Vector3(
+centerX + orbitRadius*Math.cos(t),
+2,
+centerZ + orbitRadius*Math.sin(t)
+)
+)
+
+}
+
+let geom=new THREE.BufferGeometry().setFromPoints(points)
+
+let line=new THREE.Line(
+geom,
+new THREE.LineBasicMaterial({color:0x00ffff})
+)
+
+scene.add(line)
+
+electrons.push({
+
+mesh:electron,
+
+centerX:centerX,
+centerZ:centerZ,
+
+angle:Math.random()*6.28,
+
+line:line
+
+})
+
+}
+
+}
+
+function update(){
+
+let B=parseFloat(document.getElementById("B").value)
+
+for(let e of electrons){
+
+e.angle += 0.02 * B
+
+let x = e.centerX + orbitRadius*Math.cos(e.angle)
+let z = e.centerZ + orbitRadius*Math.sin(e.angle)
+
+e.mesh.position.set(x,2,z)
+
+}
+
+}
+
+function animate(){
+
+requestAnimationFrame(animate)
+
+if(!paused){
+update()
+}
+
+renderer.render(scene,camera)
+
+}
+
+function pauseSim(){
+paused=true
+}
+
+function resumeSim(){
+paused=false
+}
+
+function resetSim(){
+createElectrons()
+}
+
+</script>
+
+</body>
+</html>

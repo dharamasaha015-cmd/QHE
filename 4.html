@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>3D Classical vs Quantum Landau Simulation</title>
+
+<style>
+
+body{
+margin:0;
+overflow:hidden;
+background:black;
+font-family:Arial;
+}
+
+#title{
+position:absolute;
+top:10px;
+left:50%;
+transform:translateX(-50%);
+color:white;
+text-align:center;
+}
+
+#controls{
+position:absolute;
+right:10px;
+top:10px;
+background:#111;
+padding:15px;
+width:230px;
+color:white;
+}
+
+label{
+display:block;
+margin-top:10px;
+}
+
+input{
+width:100%;
+}
+
+button{
+width:100%;
+margin-top:10px;
+padding:8px;
+background:#00ffff;
+border:none;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="title">
+<h3>Classical vs Quantum Landau Motion</h3>
+<p>Left: Classical | Right: Quantum Landau Levels</p>
+</div>
+
+<div id="controls">
+
+<label>Magnetic Field</label>
+<input type="range" id="B" min="0" max="2" step="0.05" value="1">
+
+<label>Electron Speed</label>
+<input type="range" id="speed" min="0.5" max="3" step="0.1" value="1">
+
+<label>Electron Count</label>
+<input type="range" id="count" min="1" max="40" value="15">
+
+<button onclick="pauseSim()">Pause</button>
+<button onclick="resumeSim()">Resume</button>
+<button onclick="resetSim()">Reset</button>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+
+let scene
+let camera
+let renderer
+let classicalGroup
+let quantumGroup
+let electrons=[]
+let paused=false
+
+init()
+animate()
+
+function init(){
+
+scene = new THREE.Scene()
+
+camera = new THREE.PerspectiveCamera(
+60,
+window.innerWidth/window.innerHeight,
+0.1,
+1000
+)
+
+camera.position.set(0,120,180)
+camera.lookAt(0,0,0)
+
+renderer = new THREE.WebGLRenderer({antialias:true})
+
+renderer.setSize(window.innerWidth,window.innerHeight)
+
+document.body.appendChild(renderer.domElement)
+
+let light = new THREE.PointLight(0xffffff,1)
+
+light.position.set(100,200,100)
+
+scene.add(light)
+
+let ambient = new THREE.AmbientLight(0x404040)
+
+scene.add(ambient)
+
+classicalGroup = new THREE.Group()
+quantumGroup = new THREE.Group()
+
+classicalGroup.position.set(-70,0,0)
+quantumGroup.position.set(70,0,0)
+
+scene.add(classicalGroup)
+scene.add(quantumGroup)
+
+createFilm(classicalGroup)
+createFilm(quantumGroup)
+
+createMagneticField(classicalGroup)
+createMagneticField(quantumGroup)
+
+createElectrons()
+
+window.addEventListener("resize",resize)
+
+}
+
+function resize(){
+
+camera.aspect = window.innerWidth/window.innerHeight
+camera.updateProjectionMatrix()
+
+renderer.setSize(window.innerWidth,window.innerHeight)
+
+}
+
+function createFilm(group){
+
+let geo = new THREE.PlaneGeometry(120,120)
+
+let mat = new THREE.MeshPhongMaterial({
+color:0x222222,
+side:THREE.DoubleSide
+})
+
+let plane = new THREE.Mesh(geo,mat)
+
+plane.rotation.x = -Math.PI/2
+
+group.add(plane)
+
+}
+
+function createMagneticField(group){
+
+for(let x=-40;x<=40;x+=20){
+
+for(let z=-40;z<=40;z+=20){
+
+let dir = new THREE.Vector3(0,1,0)
+
+let origin = new THREE.Vector3(x,0,z)
+
+let arrow = new THREE.ArrowHelper(
+dir,
+origin,
+25,
+0x00ffff
+)
+
+group.add(arrow)
+
+}
+
+}
+
+}
+
+function createElectrons(){
+
+electrons.forEach(e=>{
+
+classicalGroup.remove(e.mesh)
+classicalGroup.remove(e.line)
+
+quantumGroup.remove(e.qmesh)
+quantumGroup.remove(e.qline)
+
+})
+
+electrons=[]
+
+let count=document.getElementById("count").value
+
+for(let i=0;i<count;i++){
+
+let geo=new THREE.SphereGeometry(2,16,16)
+
+let classicalMat=new THREE.MeshBasicMaterial({color:0xffff00})
+let quantumMat=new THREE.MeshBasicMaterial({color:0xff00ff})
+
+let classicalElectron=new THREE.Mesh(geo,classicalMat)
+let quantumElectron=new THREE.Mesh(geo,quantumMat)
+
+classicalGroup.add(classicalElectron)
+quantumGroup.add(quantumElectron)
+
+let centerX=(Math.random()-0.5)*60
+let centerZ=(Math.random()-0.5)*60
+
+let classicalRadius=5+Math.random()*30
+
+let quantumLevels=[10,20,30,40]
+
+let quantumRadius=quantumLevels[
+Math.floor(Math.random()*quantumLevels.length)
+]
+
+let points=[]
+
+for(let t=0;t<6.28;t+=0.1){
+
+points.push(
+new THREE.Vector3(
+centerX+classicalRadius*Math.cos(t),
+0,
+centerZ+classicalRadius*Math.sin(t)
+)
+)
+
+}
+
+let geom=new THREE.BufferGeometry().setFromPoints(points)
+
+let line=new THREE.Line(
+geom,
+new THREE.LineBasicMaterial({color:0x00ffff})
+)
+
+classicalGroup.add(line)
+
+let qpoints=[]
+
+for(let t=0;t<6.28;t+=0.1){
+
+qpoints.push(
+new THREE.Vector3(
+quantumRadius*Math.cos(t),
+0,
+quantumRadius*Math.sin(t)
+)
+)
+
+}
+
+let qgeom=new THREE.BufferGeometry().setFromPoints(qpoints)
+
+let qline=new THREE.Line(
+qgeom,
+new THREE.LineBasicMaterial({color:0xff00ff})
+)
+
+quantumGroup.add(qline)
+
+electrons.push({
+
+mesh:classicalElectron,
+qmesh:quantumElectron,
+
+centerX:centerX,
+centerZ:centerZ,
+
+radiusClassical:classicalRadius,
+radiusQuantum:quantumRadius,
+
+angle:Math.random()*6.28
+
+})
+
+}
+
+}
+
+function update(){
+
+let B=parseFloat(document.getElementById("B").value)
+
+let speed=parseFloat(document.getElementById("speed").value)
+
+for(let e of electrons){
+
+e.angle+=0.02*B*speed
+
+let x=e.centerX+e.radiusClassical*Math.cos(e.angle)
+let z=e.centerZ+e.radiusClassical*Math.sin(e.angle)
+
+e.mesh.position.set(x,2,z)
+
+let qx=e.radiusQuantum*Math.cos(e.angle)
+let qz=e.radiusQuantum*Math.sin(e.angle)
+
+e.qmesh.position.set(qx,2,qz)
+
+}
+
+}
+
+function animate(){
+
+requestAnimationFrame(animate)
+
+if(!paused){
+
+update()
+
+}
+
+renderer.render(scene,camera)
+
+}
+
+function pauseSim(){
+
+paused=true
+
+}
+
+function resumeSim(){
+
+paused=false
+
+}
+
+function resetSim(){
+
+createElectrons()
+
+}
+
+</script>
+
+</body>
+</html>
